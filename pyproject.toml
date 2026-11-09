@@ -1,0 +1,110 @@
+[project]
+name = "eduvia-visio"
+version = "0.1.0"
+description = "Plateforme de visioconférence auto-hébergée, pilotée par API (Eduvia)"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "pydantic-settings>=2.4",
+    "sqlalchemy>=2.0",
+    "alembic>=1.13",
+    "tzdata>=2024.1",
+    "pyjwt>=2.8",
+    "httpx>=0.27",
+    "boto3>=1.43.123",
+]
+
+[project.optional-dependencies]
+transcription = [
+    "faster-whisper>=1.1",
+    "av>=14,<17",  # faster-whisper 1.2 ne décode plus avec av 19 (metadata_errors)
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "ruff>=0.6",
+    "mypy>=1.11",
+    "taskipy>=1.13",
+    "openapi-spec-validator>=0.9.0",
+    "playwright>=1.63,<1.64",
+    "moto[server]>=5.2.5",
+    "types-pyyaml>=6.0.12.20261103",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/visio"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra -m 'not e2e'"
+markers = ["e2e: tests de bout en bout (navigateur, backend et LiveKit réels) : uv run task e2e"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM"]
+
+[tool.ruff.lint.per-file-ignores]
+"src/visio/db/migrations/versions/*" = ["E501"]  # fichiers générés par Alembic
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+files = ["src", "tests"]
+
+[[tool.mypy.overrides]]
+# boto3 / moto n'ont pas de stubs : on les isole dans services/storage.py (types Any).
+module = ["boto3.*", "botocore.*", "moto.*", "faster_whisper.*", "av.*"]
+ignore_missing_imports = true
+
+[tool.taskipy.tasks]
+dev = "dotenvx run -f .env.development -q -- uvicorn visio.main:app --reload --port 8000"
+test = "pytest"
+lint = "ruff check . && ruff format --check ."
+format = "ruff format . && ruff check --fix ."
+typecheck = "mypy"
+check = "task lint && task typecheck && task test"
+env-init = "python -m visio.tools.envinit"
+env-check = "python -m visio.tools.envcheck"
+db-upgrade = "dotenvx run -f .env.development -q -- python -m visio.db.migrate"
+web-install = "npm --prefix web ci"
+web-build = "npm --prefix web run build"
+web-check = "npm --prefix web run typecheck"
+web-dev = "npm --prefix web run dev"
+dev-lan = "dotenvx run -f .env.development -q -- uvicorn visio.main:app --reload --host 0.0.0.0 --port 8000"
+e2e = "pytest tests/e2e -m e2e"
+e2e-docker = "dotenvx run -f .env.development -q -- pytest tests/e2e -m e2e --livekit-docker"
+s3-init = "dotenvx run -f .env.development -q -- python -m visio.tools.s3check init"
+s3-check = "dotenvx run -f .env.development -q -- python -m visio.tools.s3check check"
+egress-check = "dotenvx run -f .env.development -q -- python -m visio.tools.egresscheck"
+recordings-list = "dotenvx run -f .env.development -q -- python -m visio.tools.recordings"
+recordings-get = "dotenvx run -f .env.development -q -- python -m visio.tools.recordings_get"
+sim-long = "dotenvx run -f .env.development -q -- python -m visio.tools.simulate_long"
+recording-check = "dotenvx run -f .env.development -q -- python -m visio.tools.recordingcheck"
+artifacts-check = "dotenvx run -f .env.development -q -- python -m visio.tools.artifactscheck"
+tracks-list = "dotenvx run -f .env.development -q -- python -m visio.tools.trackslist"
+tracks-get = "dotenvx run -f .env.development -q -- python -m visio.tools.tracksget"
+jobs-list = "dotenvx run -f .env.development -q -- python -m visio.tools.jobslist"
+jobs-retry = "dotenvx run -f .env.development -q -- python -m visio.tools.jobsretry"
+transcriber = "dotenvx run -f .env.development -q -- python -m visio.workers.transcriber"
+transcriber-check = "dotenvx run -f .env.development -q -- python -m visio.tools.transcribercheck"
+transcribe-file = "dotenvx run -f .env.development -q -- python -m visio.tools.transcribefile"
+wer = "python -m visio.tools.wer"
+smoke-prod = "dotenvx run -f .env.production -q -- python -m visio.tools.smokeprod"
+render-config = "dotenvx run -f .env.production -q -- python -m visio.tools.renderconfig data/generated"
+chain-test = "dotenvx run -f .env.development -q -- python -m visio.tools.chaintest"
+load-report = "python -m visio.tools.loadreport"
+load-record = "dotenvx run -f .env.development -q -- python -m visio.tools.loadrecord"
+load-api = "python -m visio.tools.loadapi"
+licences = "python -m visio.tools.licences"
+repo-check = "python -m visio.tools.repocheck"

@@ -1,0 +1,15 @@
+# Section RESEAU du livekit.yaml de production (etape 18). Aucun secret ici : les cles d'API
+# arrivent par l'environnement (LIVEKIT_KEYS) au deploiement (etape 19). Les valeurs
+# `turn.eduvia.app` et les chemins de certificat sont a adapter ; voir docs/RESEAU.md.
+rtc:
+  tcp_port: 7881          # WebRTC en TCP (secours quand l'UDP est bloque)
+  udp_port: 7882          # WebRTC en UDP, un seul port pour toutes les connexions
+  use_external_ip: true   # le serveur est derriere une IP publique non vue par le processus
+turn:
+  enabled: true
+  domain: turn.eduvia.app           # DOIT etre different du domaine de l'API et du certificat
+  tls_port: 443                     # TURN/TLS : ressemble a du HTTPS pour un pare-feu
+  udp_port: 443                     # TURN/UDP (3478 si le 443 UDP est deja pris)
+  cert_file: /certs/turn.crt
+  key_file: /certs/turn.key
+  external_tls: false               # true seulement si un equilibreur termine le TLS

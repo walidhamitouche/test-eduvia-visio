@@ -1,0 +1,101 @@
+# Production Eduvia Visio (étape 19). Déployé par Coolify (type « Docker Compose »).
+#
+# Variables : DOTENV_PRIVATE_KEY_PRODUCTION (seule valeur secrète) et deux réglages réseau non
+# secrets, TURN_DOMAIN et TURN_BIND_IP. Tout le reste est dans .env.production (chiffré).
+# Domaines (à saisir dans Coolify, pas ici) :  api -> visio.eduvia.app (port 8000)
+#                                              livekit -> rtc.eduvia.app (port 7880)
+# S3 : externe (fourni par Eduvia), donc pas de service S3 ici.
+
+name: eduvia-visio
+
+x-app-env: &app-env
+  DOTENV_PRIVATE_KEY_PRODUCTION: ${DOTENV_PRIVATE_KEY_PRODUCTION:?clé dotenvx manquante}
+
+x-logging: &logging
+  driver: json-file
+  options: { max-size: "20m", max-file: "5" }   # 8 h de réunion ne doivent pas remplir le disque
+
+services:
+  config-init:
+    build: { context: .., target: api }
+    image: eduvia-visio-api:${VISIO_TAG:-latest}
+    command: ["config-init", "/generated"]
+    user: "0"                    # écrit dans un volume neuf (root) ; ne tourne que quelques secondes
+    environment:
+      <<: *app-env
+      TURN_DOMAIN: ${TURN_DOMAIN:?ex. turn.eduvia.app}
+    volumes: [generated:/generated]
+    restart: "no"
+
+  redis:
+    logging: *logging
+    image: valkey/valkey:8-alpine   # Valkey (BSD-3) : compatible Redis ; le service garde le nom `redis`
+    restart: unless-stopped
+    command: ["valkey-server", "--save", "", "--appendonly", "no"]   # files de travail LiveKit : éphémères
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  livekit:
+    logging: *logging
+    image: livekit/livekit-server:v1.13.11
+    restart: unless-stopped
+    command: ["--config", "/generated/livekit.yaml"]
+    depends_on:
+      config-init: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+    ports:
+      - "7881:7881"                                  # WebRTC TCP (secours)
+      - "7882:7882/udp"                              # WebRTC UDP
+      - "${TURN_BIND_IP:?2e IP publique pour le TURN, voir docs/RESEAU.md}:443:443"       # TURN/TLS
+      - "${TURN_BIND_IP}:443:443/udp"                # TURN/UDP
+    expose: ["7880"]                                 # signalisation, derrière le proxy Coolify
+    volumes:
+      - generated:/generated:ro
+      - /data/eduvia/certs:/certs:ro                 # turn.crt / turn.key (voir docs/INSTALL.md §6)
+
+  egress:
+    logging: *logging
+    image: livekit/egress:${EGRESS_VERSION:-v1.15.0}
+    restart: unless-stopped
+    environment:
+      EGRESS_CONFIG_FILE: /generated/egress.yaml
+    cap_add: [SYS_ADMIN]                             # exigé par le Chrome embarqué
+    shm_size: "1gb"
+    depends_on:
+      config-init: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+      livekit: { condition: service_started }
+      api: { condition: service_healthy }
+    volumes: [generated:/generated:ro]
+
+  api:
+    logging: *logging
+    build: { context: .., target: api }
+    image: eduvia-visio-api:${VISIO_TAG:-latest}
+    restart: unless-stopped
+    environment: *app-env
+    depends_on:
+      config-init: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+    expose: ["8000"]                                 # servi par le proxy Coolify en HTTPS
+    volumes: [data:/app/data]                        # SQLite (WAL) : une seule instance de l'API
+
+  transcriber:
+    logging: *logging
+    build: { context: .., target: transcriber, args: { WITH_CUDA: "${WITH_CUDA:-0}" } }
+    image: eduvia-visio-transcriber:${VISIO_TAG:-latest}
+    restart: unless-stopped
+    environment: *app-env
+    depends_on:
+      api: { condition: service_healthy }            # l'API a appliqué les migrations
+    volumes:
+      - data:/app/data                               # même base que l'API
+      - models:/app/data/models/whisper              # modèle Whisper téléchargé une fois
+
+volumes:
+  generated:
+  data:
+  models:

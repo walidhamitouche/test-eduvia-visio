@@ -1,0 +1,35 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+dist/
+
+# Secrets : ne jamais versionner les clés privées dotenvx (étape 2)
+.env.keys
+.env.keys.*
+*.keys.bak
+.env.local
+
+# Données locales
+*.db
+*.db-wal
+*.db-shm
+data/
+
+# Front
+node_modules/
+web/dist/
+
+# Éditeurs / OS
+.DS_Store
+Thumbs.db
+
+# Binaire LiveKit telecharge pour le developpement (etape 6)
+deploy/dev/livekit-server.exe
+
+# Etape 13 : config LiveKit generee (contient les cles)
+deploy/dev/.generated/

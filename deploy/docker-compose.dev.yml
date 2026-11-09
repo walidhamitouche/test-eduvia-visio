@@ -1,0 +1,97 @@
+# Environnement de dev proche de la production (étape 13).
+# Ne se lance pas directement : passer par  .\deploy\dev\docker-dev.ps1 up
+# (le script génère les configurations LiveKit et S3 avec les clés de .env.development).
+#
+# 13a : LiveKit + Redis.   13b : + S3 local (SeaweedFS).   13c : + Egress (enregistrement).
+#
+# S3 local : SeaweedFS (Apache 2.0). MinIO, prévu à l'origine, a supprimé ses images de
+# Docker Hub en septembre 2026 et son dépôt est archivé (voir docs/DECISIONS.md, point 68).
+
+name: eduvia-visio-dev
+
+services:
+  redis:
+    image: valkey/valkey:8-alpine   # Valkey (BSD-3) : compatible Redis ; le service garde le nom `redis`
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:6379:6379"
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  livekit:
+    image: livekit/livekit-server:v1.13.11
+    restart: unless-stopped
+    command: ["--config", "/etc/livekit.yaml"]
+    depends_on:
+      redis:
+        condition: service_healthy
+    ports:
+      # HTTP / WebSocket : réservé à ce poste. Les ports WebRTC (7881, 7882) écoutent sur toutes
+      # les interfaces : node_ip vaut l'adresse LAN du poste (voir livekit.yaml, généré par
+      # docker-dev.ps1), car Chrome (celui d'Egress comme celui des participants) n'établit pas
+      # de connexion WebRTC vers 127.0.0.1.
+      - "127.0.0.1:7880:7880"        # HTTP / WebSocket (le backend et les navigateurs)
+      - "7881:7881"                  # WebRTC en TCP (secours)
+      - "7882:7882/udp"              # WebRTC en UDP (un seul port, voir livekit.yaml)
+      - "3478:3478/udp"              # TURN/UDP (etape 18, seulement si VISIO_DEV_TURN=udp)
+      - "5349:5349"                  # TURN/TLS (etape 18, seulement si VISIO_DEV_TURN=tls)
+      - "30000-30010:30000-30010/udp"  # ports de relais du TURN (etape 18)
+    volumes:
+      - ./dev/.generated/livekit.yaml:/etc/livekit.yaml:ro
+      - ./dev/.generated/certs:/certs:ro   # certificat TURN/TLS de dev (etape 18)
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  # S3 de développement : master + volume + filer + passerelle S3 dans un seul conteneur.
+  # La passerelle écoute sur 9000, donc  S3_ENDPOINT=http://localhost:9000  (valeur par défaut
+  # de .env.development) fonctionne sans changement. Le bucket est créé par  uv run task s3-init.
+  s3:
+    image: chrislusf/seaweedfs:4.06
+    restart: unless-stopped
+    command: ["server", "-dir=/data", "-s3", "-s3.port=9000", "-s3.config=/etc/seaweedfs/s3.json"]
+    ports:
+      - "127.0.0.1:9000:9000"
+    volumes:
+      - s3-data:/data
+      - ./dev/.generated/s3.json:/etc/seaweedfs/s3.json:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:9333/cluster/status || nc -z 127.0.0.1 9000 || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
+
+  # Enregistrement (étape 13c). Egress pilote un Chrome sans écran qui rejoint la salle comme un
+  # participant et encode en MP4, puis envoie le fichier au S3 (configuration : egress.yaml généré).
+  #
+  # Egress est dans le réseau Docker normal : il joint LiveKit par `livekit:7880`, Redis par
+  # `redis:6379` et le S3 par `s3:9000`. Pour le WebRTC, LiveKit annonce l'adresse LAN du poste
+  # (node_ip) et ses ports sont publiés sur l'hôte : le Chrome d'Egress les atteint comme n'importe
+  # quel client. (Un essai avec `network_mode: service:livekit` + node_ip 127.0.0.1 échouait :
+  # « Start signal not received », Chrome ne se connecte pas en WebRTC à 127.0.0.1 ; DECISIONS.md.)
+  # En production (étape 19) : IP réelle du serveur (use_external_ip) et TURN.
+  egress:
+    image: livekit/egress:${EGRESS_VERSION:-v1.15.0}
+    restart: unless-stopped
+    environment:
+      EGRESS_CONFIG_FILE: /etc/egress.yaml
+    cap_add:
+      - SYS_ADMIN            # exigé par le Chrome embarqué
+    shm_size: "1gb"          # Chrome plante avec le /dev/shm de 64 Mo par défaut
+    extra_hosts:
+      - "host.docker.internal:host-gateway"   # Chrome d'Egress charge /recording-template du backend
+    depends_on:
+      redis:
+        condition: service_healthy
+      livekit:
+        condition: service_started
+      s3:
+        condition: service_started
+    volumes:
+      - ./dev/.generated/egress.yaml:/etc/egress.yaml:ro
+
+volumes:
+  s3-data:

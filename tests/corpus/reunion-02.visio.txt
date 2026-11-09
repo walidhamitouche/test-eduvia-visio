@@ -1,0 +1,11 @@
+[00:00:27] Marie Durand : Bonsoir à tous.
+[00:00:31] Marie Durand : the technology during
+[00:00:49] Marie Durand : Aujourd'hui, les technologies de l'intelligence artificielle évoluent très rapidement.
+[00:00:53] Marie Durand : Parmi les domaines les plus intéressants, on retrouve le machine learning, le deep learning et le natural language processing, aussi appelé NLP.
+[00:01:04] Marie Durand : For example, when we build an AI assistant using Retrieval Augmented Generation or RAG,
+[00:01:13] Marie Durand : The objective is to retrieve relevant information from knowledge base and generate accurate answers based on reliable sources.
+[00:01:29] Marie Durand : Pour développer ce type de solution, on utilise plusieurs technologies, comme Python, FastAPI, Vector Database, Competing et Large Language Model, également appelé LLMS.
+[00:01:44] Marie Durand : Le principal défi n'est pas seulement de générer une réponse,
+[00:01:50] Marie Durand : but also to make sure that the information is relevant, consistent and factually correct.
+[00:01:59] Marie Durand : En parallèle, le développement web permet de créer des interfaces interactives avec React, JavaScript et REST APIs.
+[00:02:10] Marie Durand : Finally, combining artificial intelligence with software engineering can help us build smarter applications, automate repetitive tasks, and improve the user experience.

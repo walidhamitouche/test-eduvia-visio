@@ -1,0 +1,1 @@
+﻿Machine Learning, Deep Learning, Natural Language Processing, NLP, AI assistant, Retrieval-Augmented Generation, RAG, knowledge base, Python, FastAPI, vector databases, embeddings, Large Language Models, LLMs, React, JavaScript, REST APIs, software engineering

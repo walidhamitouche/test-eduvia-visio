@@ -1,0 +1,6 @@
+﻿Aujourd'hui, les technologies de l'intelligence artificielle évoluent très rapidement. Parmi les domaines les plus intéressants, on retrouve le Machine Learning, le Deep Learning et le Natural Language Processing, aussi appelé NLP.
+For example, when we build an AI assistant using Retrieval-Augmented Generation, or RAG, the objective is to retrieve relevant information from a knowledge base and generate accurate answers based on reliable sources.
+Pour développer ce type de solution, on utilise plusieurs technologies comme Python, FastAPI, vector databases, embeddings et Large Language Models, également appelés LLMs.
+The main challenge is not only to generate an answer, but also to make sure that the information is relevant, consistent, and factually correct.
+En parallèle, le développement web permet de créer des interfaces interactives avec React, JavaScript et REST APIs.
+Finally, combining artificial intelligence with software engineering can help us build smarter applications, automate repetitive tasks, and improve the user experience.

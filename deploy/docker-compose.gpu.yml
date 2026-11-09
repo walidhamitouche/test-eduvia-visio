@@ -1,0 +1,10 @@
+# Surcharge GPU NVIDIA pour le worker de transcription :
+#   WITH_CUDA=1 docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d --build
+# (avec TRANSCRIPTION_DEVICE=cuda et TRANSCRIPTION_COMPUTE_TYPE=float16 dans .env.production)
+services:
+  transcriber:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - { driver: nvidia, count: 1, capabilities: [gpu] }

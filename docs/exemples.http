@@ -1,0 +1,310 @@
+### Eduvia Visio — exemples d'appels (étapes 4 et 5)
+###
+### Utilisation : extension VS Code « REST Client » (humao.rest-client), puis clic sur
+### « Send Request » au-dessus de chaque requête.
+###
+### 1. Lance l'API :            uv run task dev
+### 2. Base à jour (1 fois) :   uv run task db-upgrade
+### 3. Récupère la clé d'API :  dotenvx get API_KEY -f .env.development
+###    puis colle-la ci-dessous à la place de COLLE_LA_CLE_ICI (ne la commite jamais).
+###
+### Les dates d'exemple sont en janvier 2027 : une réunion dont la fin est déjà passée est
+### refusée (`invalid_slot`). Si tu rejoues ce fichier plus tard, change les dates.
+
+@host = http://localhost:8000
+@apiKey = COLLE_LA_CLE_ICI
+
+### ---------------------------------------------------------------------------------------
+### 1. Créer une réunion (exemple du besoin, §4) → 201
+### Les liens (participant_url, organizer_urls) ne sont renvoyés qu'ici.
+
+# @name creation
+POST {{host}}/v1/meetings
+Authorization: Bearer {{apiKey}}
+Content-Type: application/json
+
+{
+  "title": "Cours BTS MCO – Groupe A",
+  "starts_at": "2027-01-02T16:00:00+01:00",
+  "ends_at": "2027-01-02T18:00:00+01:00",
+  "early_join_minutes": 10,
+  "waiting_room": true,
+  "recording": true,
+  "transcription": true,
+  "organizers": [{ "display_name": "Marie Durand", "external_id": "staff_42" }],
+  "metadata": { "eduvia_session_id": 1234 }
+}
+
+### L'id de la réunion créée ci-dessus, réutilisé par les requêtes suivantes
+@meetingId = {{creation.response.body.id}}
+
+### ---------------------------------------------------------------------------------------
+### 2. Créer une réunion avec deux organisateurs (formateur + co-animateur), options par défaut
+
+POST {{host}}/v1/meetings
+Authorization: Bearer {{apiKey}}
+Content-Type: application/json
+
+{
+  "title": "Entretien individuel",
+  "starts_at": "2027-01-05T09:00:00+01:00",
+  "ends_at": "2027-01-05T09:30:00+01:00",
+  "organizers": [
+    { "display_name": "Marie Durand", "external_id": "staff_42" },
+    { "display_name": "Paul Martin", "external_id": "staff_77" }
+  ]
+}
+
+### ---------------------------------------------------------------------------------------
+### 3. Lire l'état d'une réunion (statut, options, metadata, participants connectés)
+
+GET {{host}}/v1/meetings/{{meetingId}}
+Authorization: Bearer {{apiKey}}
+
+### ---------------------------------------------------------------------------------------
+### 4. Modifier avant le début (seuls les champs envoyés changent ; metadata est remplacé en entier)
+
+PATCH {{host}}/v1/meetings/{{meetingId}}
+Authorization: Bearer {{apiKey}}
+Content-Type: application/json
+
+{
+  "title": "Cours BTS MCO – Groupe A (salle 2)",
+  "starts_at": "2027-01-02T16:30:00+01:00",
+  "ends_at": "2027-01-02T18:30:00+01:00"
+}
+
+### ---------------------------------------------------------------------------------------
+### 4 bis. (étape 5) Générer un lien nominatif : participant avec nom pré-rempli → 201
+### L'url n'est renvoyée qu'ici (jamais relue). Le nom apparaîtra dans la visio, la présence
+### et la transcription. Décoder un jeton EN LOCAL (jamais sur un site en ligne) :
+###   uv run python -c "import jwt,sys;print(jwt.decode(sys.argv[1],options={'verify_signature':False}))" <jeton>
+### où <jeton> est la fin de l'url, après /j/
+
+POST {{host}}/v1/meetings/{{meetingId}}/links
+Authorization: Bearer {{apiKey}}
+Content-Type: application/json
+
+{
+  "role": "participant",
+  "display_name": "Lina Benali",
+  "external_id": "stu_981"
+}
+
+### 4 ter. (étape 5) Lien organisateur supplémentaire (co-animateur) → 201 (10 liens max)
+
+POST {{host}}/v1/meetings/{{meetingId}}/links
+Authorization: Bearer {{apiKey}}
+Content-Type: application/json
+
+{
+  "role": "organizer",
+  "display_name": "Paul Martin",
+  "external_id": "staff_77"
+}
+
+### ---------------------------------------------------------------------------------------
+### 5. Clore une réunion ouverte immédiatement
+### (avant l'ouverture : 409 meeting_not_started, il faut annuler avec DELETE)
+
+POST {{host}}/v1/meetings/{{meetingId}}/end
+Authorization: Bearer {{apiKey}}
+
+### ---------------------------------------------------------------------------------------
+### 6. Annuler une réunion qui n'a pas commencé (rejouable : déjà annulée = 200)
+
+DELETE {{host}}/v1/meetings/{{meetingId}}
+Authorization: Bearer {{apiKey}}
+
+### ===========================================================================================
+### ERREURS ATTENDUES — chacune doit répondre {"error": {"code": "...", "message": "..."}}
+### ===========================================================================================
+
+### E1. Sans clé → 401 unauthorized
+
+POST {{host}}/v1/meetings
+Content-Type: application/json
+
+{ "title": "x" }
+
+### E2. Mauvaise clé → 401 unauthorized
+
+GET {{host}}/v1/meetings/{{meetingId}}
+Authorization: Bearer une-mauvaise-cle
+
+### E3. Date sans décalage horaire → 422 invalid_slot
+
+POST {{host}}/v1/meetings
+Authorization: Bearer {{apiKey}}
+Content-Type: application/json
+
+{
+  "title": "Date ambiguë",
+  "starts_at": "2027-01-02T16:00:00",
+  "ends_at": "2027-01-02T18:00:00",
+  "organizers": [{ "display_name": "Marie Durand" }]
+}
+
+### E4. Fin avant le début → 422 invalid_slot
+
+POST {{host}}/v1/meetings
+Authorization: Bearer {{apiKey}}
+Content-Type: application/json
+
+{
+  "title": "Créneau à l'envers",
+  "starts_at": "2027-01-02T18:00:00+01:00",
+  "ends_at": "2027-01-02T16:00:00+01:00",
+  "organizers": [{ "display_name": "Marie Durand" }]
+}
+
+### E5. Champ inconnu (faute de frappe) → 422 validation_error
+
+POST {{host}}/v1/meetings
+Authorization: Bearer {{apiKey}}
+Content-Type: application/json
+
+{
+  "title": "Faute de frappe",
+  "starts_at": "2027-01-02T16:00:00+01:00",
+  "ends_at": "2027-01-02T18:00:00+01:00",
+  "recordng": true,
+  "organizers": [{ "display_name": "Marie Durand" }]
+}
+
+### E6. Réunion inconnue → 404 meeting_not_found
+
+GET {{host}}/v1/meetings/mtg_inconnu
+Authorization: Bearer {{apiKey}}
+
+### E7. (étape 5) Lien sans nom → 422 validation_error
+
+POST {{host}}/v1/meetings/{{meetingId}}/links
+Authorization: Bearer {{apiKey}}
+Content-Type: application/json
+
+{ "role": "participant" }
+
+### E8. (étape 5) Lien sur une réunion annulée → 409 meeting_cancelled
+### (à rejouer après la requête 6, qui annule la réunion)
+
+POST {{host}}/v1/meetings/{{meetingId}}/links
+Authorization: Bearer {{apiKey}}
+Content-Type: application/json
+
+{ "role": "participant", "display_name": "Lina Benali" }
+
+### 7. (étape 6) Rejoindre une réunion avec un lien — route publique, sans clé d'API.
+### Colle le jeton du lien (la partie après /j/) dans `token`. Créneau 16 h - 18 h :
+### hors créneau → 409 not_open_yet (avec opens_at) ou meeting_ended ; pendant → 200 + jeton LiveKit.
+
+POST {{host}}/v1/join
+Content-Type: application/json
+
+{
+  "token": "COLLE_ICI_LE_JETON",
+  "display_name": "Lina Benali"
+}
+
+### 8. (étape 7) Aperçu d'un lien, sans rejoindre — route publique, aucun jeton émis.
+### Renvoie `status` (not_open_yet, open, ended, cancelled), `opens_at`, `server_time`,
+### le titre, les options et le nom (verrouillé sur un lien nominatif, à saisir sur le générique).
+
+POST {{host}}/v1/join/preview
+Content-Type: application/json
+
+{ "token": "COLLE_ICI_LE_JETON" }
+
+### E9. (étape 6) Lien inventé ou modifié → 404 invalid_link, aucune salle ouverte
+
+POST {{host}}/v1/join
+Content-Type: application/json
+
+{ "token": "abc.def.ghi" }
+
+### ---------------------------------------------------------------------------------------
+### 9. (étapes 8 à 12) Routes de salle : le jeton du lien de l'ORGANISATEUR suffit.
+### `identity` : celle de la personne dans la salle (visible dans l'interface, panneau Participants).
+### `source` : microphone, camera ou screen_share.
+
+POST {{host}}/v1/room/mute
+Content-Type: application/json
+
+{ "token": "JETON_ORGANISATEUR", "identity": "pg_0123…", "source": "microphone" }
+
+###
+
+POST {{host}}/v1/room/remove
+Content-Type: application/json
+
+{ "token": "JETON_ORGANISATEUR", "identity": "pg_0123…" }
+
+###
+
+POST {{host}}/v1/room/end
+Content-Type: application/json
+
+{ "token": "JETON_ORGANISATEUR" }
+
+### 10. Émargement et chat conservés (clé d'API)
+
+GET {{host}}/v1/meetings/COLLE_ID/attendance
+Authorization: Bearer {{apiKey}}
+
+###
+
+GET {{host}}/v1/meetings/COLLE_ID/chat
+Authorization: Bearer {{apiKey}}
+
+### ---------------------------------------------------------------------------------------
+### 11. (étape 15) Enregistrements : liste avec URL de 15 min, téléchargement, suppression
+
+GET {{host}}/v1/meetings/COLLE_ID/recordings
+Authorization: Bearer {{apiKey}}
+
+### Un seul enregistrement (après le webhook recording.ready, qui donne recording_id)
+
+GET {{host}}/v1/recordings/COLLE_ID_ENREGISTREMENT
+Authorization: Bearer {{apiKey}}
+
+### Télécharger : colle `download_url` reçue. AUCUNE clé d'API : l'URL fait foi pendant 15 min.
+### Après 15 min → 410 download_link_expired ; après suppression → 410 artifact_deleted.
+
+GET COLLE_ICI_download_url
+
+### Reprise d'un téléchargement : les 1024 premiers octets (206 + Content-Range)
+
+GET COLLE_ICI_download_url
+Range: bytes=0-1023
+
+### Suppression DÉFINITIVE (204). Refusée (409 artifact_not_ready) tant que l'enregistrement est pending.
+
+DELETE {{host}}/v1/recordings/COLLE_ID_ENREGISTREMENT
+Authorization: Bearer {{apiKey}}
+
+### E10. Enregistrement inexistant ou déjà supprimé → 404 artifact_not_found
+
+DELETE {{host}}/v1/recordings/art_inconnu
+Authorization: Bearer {{apiKey}}
+
+### E11. URL de téléchargement inventée → 404 invalid_download_link
+
+GET {{host}}/v1/downloads/abc.def.ghi
+
+### ---------------------------------------------------------------------------------------
+### 17b. Santé : vivant ou non, SANS clé (sonde Docker / Coolify) → 200 {"status": "ok"}
+### Ne sonde aucune dépendance : elle reste verte même si le S3 est en panne.
+
+GET {{host}}/health
+
+### Santé détaillée, AVEC la clé : base, LiveKit, S3, file de tâches.
+### 200 si tout va bien ; 503 (même corps) si `status` vaut `degraded` ou `down`.
+### Rien de sensible dans la réponse : états, compteurs, durées.
+
+GET {{host}}/v1/health
+Authorization: Bearer {{apiKey}}
+
+### E12. Santé détaillée sans clé → 401 unauthorized
+
+GET {{host}}/v1/health
+

@@ -1,0 +1,43 @@
+1
+00:00:27,860 --> 00:00:28,540
+Marie Durand : Bonsoir à tous.
+
+2
+00:00:31,540 --> 00:00:34,540
+Marie Durand : the technology during
+
+3
+00:00:49,044 --> 00:00:53,004
+Marie Durand : Aujourd'hui, les technologies de l'intelligence artificielle évoluent très rapidement.
+
+4
+00:00:53,584 --> 00:01:02,964
+Marie Durand : Parmi les domaines les plus intéressants, on retrouve le machine learning, le deep learning et le natural language processing, aussi appelé NLP.
+
+5
+00:01:04,596 --> 00:01:12,596
+Marie Durand : For example, when we build an AI assistant using Retrieval Augmented Generation or RAG,
+
+6
+00:01:13,844 --> 00:01:28,844
+Marie Durand : The objective is to retrieve relevant information from knowledge base and generate accurate answers based on reliable sources.
+
+7
+00:01:29,556 --> 00:01:44,556
+Marie Durand : Pour développer ce type de solution, on utilise plusieurs technologies, comme Python, FastAPI, Vector Database, Competing et Large Language Model, également appelé LLMS.
+
+8
+00:01:44,556 --> 00:01:50,556
+Marie Durand : Le principal défi n'est pas seulement de générer une réponse,
+
+9
+00:01:50,564 --> 00:01:58,564
+Marie Durand : but also to make sure that the information is relevant, consistent and factually correct.
+
+10
+00:01:59,188 --> 00:02:08,028
+Marie Durand : En parallèle, le développement web permet de créer des interfaces interactives avec React, JavaScript et REST APIs.
+
+11
+00:02:10,228 --> 00:02:25,228
+Marie Durand : Finally, combining artificial intelligence with software engineering can help us build smarter applications, automate repetitive tasks, and improve the user experience.

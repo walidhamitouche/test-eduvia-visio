@@ -1,0 +1,1 @@
+PostgreSQL, Docker Compose, FastAPI, JWT, OAuth, pull request, pipeline, CI/CD, deadline, staging, latence, WebRTC, TURN, firewall, fallback, feedback, Whisper, glossaire, Kubernetes, Terraform, Airflow, Grafana, RAG, retrieval augmented generation, embeddings, vector database, chatbot, React, TypeScript, dashboard, webhooks, rollback, backlog, sprint, load test
